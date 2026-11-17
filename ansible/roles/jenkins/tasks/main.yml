@@ -29,6 +29,10 @@
     project_src: "{{ active_jenkins_compose_dir }}"
     build: policy
     state: present
+  register: jenkins_compose_res
+  retries: 2
+  delay: 3
+  until: jenkins_compose_res is succeeded
 
 - name: Connecter le conteneur Jenkins au réseau Docker de Minikube avec IP fixe .50 (idempotent)
   ansible.builtin.shell: |
@@ -44,6 +48,13 @@
   changed_when: "'CONNECTED' in net_connect.stdout"
   failed_when: false
 
+- name: Récupérer l'IP interne de Minikube sur le réseau Docker
+  become: true
+  become_user: "{{ minikube_user }}"
+  ansible.builtin.command: minikube ip
+  register: minikube_internal_ip
+  changed_when: false
+
 - name: Lire le kubeconfig aplati de Minikube
   become: true
   become_user: "{{ minikube_user }}"
@@ -53,7 +64,7 @@
 
 - name: Exporter le kubeconfig aplati pour Jenkins (kubeconfig-jenkins.yml)
   ansible.builtin.copy:
-    content: "{{ kubeconfig_flat.stdout }}\n"
+    content: "{{ (kubeconfig_flat.stdout | regex_replace('https://(127\\.0\\.0\\.1|localhost):[0-9]+', 'https://' ~ (minikube_internal_ip.stdout | trim) ~ ':8443')) }}\n"
     dest: "{{ playbook_dir }}/kubeconfig-jenkins.yml"
     owner: "{{ minikube_user }}"
     mode: "0600"
