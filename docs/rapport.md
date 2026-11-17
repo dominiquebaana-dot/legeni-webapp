@@ -132,3 +132,17 @@ Le script automatisé [`../run_projet_cicd.sh`](../run_projet_cicd.sh) exécute 
 * **Évolutions futures vers GitOps et Observabilité :**
   * Déploiement d'**Argo CD** pour synchroniser en mode *pull* l'état du namespace `legeni-prod` depuis un dépôt Git de manifests.
   * Ajout de la stack **Prometheus + Grafana** (`kube-prometheus-stack`) avec exportateur de métriques Flask (`prometheus-flask-exporter`).
+
+---
+
+## 8. Résultats d'Exécution Réels & Soutenance (Preuves vérifiées)
+
+| Étape / Scénario | Preuve observée | Statut |
+| :--- | :--- | :--- |
+| **Provisionnement & Idempotence (`provision.yml`)** | 1re passe `ok=26 changed=4 failed=0`, 2e passe **`ok=24 changed=0 failed=0`** (re-exécution strictement idempotente) | ✅ Validé |
+| **Qualité & Sécurité (`Dockerfile` / Image / Dépôt)** | Hadolint : **0 erreur** ; Trivy (`1.0.0-1`) : **`Total: 0 (CRITICAL: 0)`** ; Gitleaks : **`0 leak`** ; Pytest couverture **83,64 %** (`>= 80 %`) | ✅ Validé |
+| **Pipeline Jenkins Multibranch (`projet-cicd-legeni-webapp`)** | Branche `feature/cicd-pipeline` #1 **`SUCCESS`** ; Branche `main` #1 **`SUCCESS`** (`308 039 ms`) avec approbation humaine Production + Smoke Test `{"app": "legeni-webapp", "env": "prod", "version": "1.0.0-1"}` | ✅ Validé |
+| **Scénario 1 (Livraison `1.0.0-1` → `1.1.0-2` sans coupure)** | Job `init-migration` terminé (`Complete 1/1`, `4s`) avant RollingUpdate ; `Nombre d'erreurs HTTP observées pendant le rolling update : 0` | ✅ Validé |
+| **Scénario 2 (Code défectueux bloquant)** | Échec volontaire sur `docker build --target test` → arrêt immédiat du pipeline (`code=1`), aucune image construite | ✅ Validé |
+| **Scénario 3 (Rollback automatique)** | Sonde `readinessProbe` défectueuse sur `/chemin-inexistant-panne` → rollback automatique vers révision saine (`code=2`, `deployment.apps/webapp 3/3 Running`) | ✅ Validé |
+| **Publication en ligne** | GitHub : `https://github.com/dominiquebaana-dot/legeni-webapp` (`main`, `feature/*`, `v1.0.0`, `v1.1.0`) ; Docker Hub : `heyitsdom/legeni-webapp` | ✅ Publié |
